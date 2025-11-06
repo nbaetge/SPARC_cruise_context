@@ -47,3 +47,13 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# data/cache and big temp files
+data/
+*.nc
+*.zip
+*.tar
+.DS_Store
+.Rproj.user/
+.Rhistory
+.RData

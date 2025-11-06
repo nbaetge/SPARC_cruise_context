@@ -1,0 +1,465 @@
+---
+title: "argoFloats_floatIDs"
+author: "Nicholas Baetge"
+date: "2025-11-03"
+output: html_document
+---
+
+```{r}
+#### Argo tracker + GUI-style composites (Map | Profiles | Hovmöller) #########
+## Safe figure options (prevents .Rproj.user snapshot errors in RStudio) ------
+if (requireNamespace("knitr", quietly = TRUE)) {
+  knitr::opts_chunk$set(fig.path = "figs/", dev = "png", dpi = 150, cache = FALSE)
+}
+dir.create("figs", showWarnings = FALSE)
+
+## Packages --------------------------------------------------------------------
+library(argoFloats)
+library(oce)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(ggrepel)
+library(tidyr)
+library(purrr)
+library(viridisLite)
+
+`%||%` <- function(a, b) if (!is.null(a) && length(a)) a else b
+
+## User settings ---------------------------------------------------------------
+destdir <- "~/github/cruise_context/SPARC_2025/SPARC_cruise_context_git/data"
+dir.create(destdir, recursive = TRUE, showWarnings = FALSE)
+
+# Region of interest
+lonlim <- c(-60, -37)
+latlim <- c(-45, -31)
+
+# Watch-list float IDs (WMO)
+watch_ids     <- c("6904186","4903868","6903767","2902834","5906487")
+watch_ids_num <- as.numeric(watch_ids)  # index stores numeric IDs
+
+# Recency filter (days back from now); set to 0 to disable
+days_back <- 120
+
+# Month filter across all years; set to NULL to disable (e.g., c(10,11,12))
+months_keep <- NULL
+
+# Which profiles to read into memory for plotting: "latest" | "watch_all" | "region_all"
+which_set <- "watch_all"
+
+# Save each composite to PNG?
+save_png <- TRUE
+
+# ---- NEW: date-stamped folder + filename suffix -----------------------------
+today_str <- format(Sys.Date(), "%Y%m%d")  # e.g., "20251105"
+
+# Full, explicit path to your GitHub repository root
+repo_root <- "/Users/nicholasbaetge/github/cruise_context/SPARC_2025/SPARC_cruise_context_git"
+
+# Parent folder for all figure outputs
+png_parent <- file.path(repo_root, "figs")
+
+# Date-stamped subfolder (e.g., figs/float_composites_20251105)
+png_dir <- file.path(png_parent, paste0("float_composites_", today_str))
+
+# Create folder if saving PNGs
+if (save_png) dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
+
+
+## Helpers ---------------------------------------------------------------------
+subset_by_months <- function(idx, months_vec) {
+  if (is.null(months_vec) || length(months_vec) == 0) return(idx)
+  yrs <- sort(unique(lubridate::year(idx[["time"]])))
+  out <- NULL
+  for (yy in yrs) for (mm in months_vec) {
+    from_y <- as.POSIXct(sprintf("%04d-%02d-01 00:00:00", yy, mm), tz="UTC")
+    to_y   <- as.POSIXct(sprintf("%04d-%02d-%02d 23:59:59", yy, mm, lubridate::days_in_month(from_y)), tz="UTC")
+    tmp <- subset(idx, time = list(from = from_y, to = to_y))
+    out <- if (is.null(out)) tmp else merge(out, tmp)
+  }
+  if (is.null(out)) idx else out
+}
+
+# tidy helpers
+getv  <- function(d, nm) if (!is.na(nm) && nm %in% names(d)) d[[nm]] else numeric(0)
+pad   <- function(x, n) if (length(x)==n) x else if (!length(x)) rep(NA_real_, n) else rep_len(x, n)
+ecoalesce <- function(q, r) {
+  if (!length(q) && length(r)) return(r)
+  if (!length(r)) return(q)
+  n <- max(length(q), length(r))
+  q <- if (length(q)==n) q else if (!length(q)) rep(NA_real_, n) else rep_len(q, n)
+  r <- if (length(r)==n) r else if (!length(r)) rep(NA_real_, n) else rep_len(r, n)
+  ifelse(is.finite(q), q, r)
+}
+pick_name <- function(nms, candidates) {
+  hit <- candidates[candidates %in% nms]
+  if (length(hit)) hit[1] else NA_character_
+}
+pick_bbp_any <- function(nms) {
+  bbp_all <- grep("^BBP[0-9]+(Adjusted)?$", nms, value = TRUE)
+  if (!length(bbp_all)) {
+    bbp_all <- nms[grepl("bbp", nms, ignore.case = TRUE) &
+                     !grepl("(QC|Flag|_err|_error|_quality|_AdjustedQC)$", nms)]
+  }
+  if (!length(bbp_all)) return(NA_character_)
+  bbp_adj <- bbp_all[grepl("Adjusted$", bbp_all)]
+  pool <- if (length(bbp_adj)) bbp_adj else bbp_all
+  wl <- suppressWarnings(as.integer(sub(".*?(\\d{3}).*$", "\\1", pool)))
+  if (any(!is.na(wl) & wl == 700)) return(pool[which(wl == 700)[1]])
+  pool[1]
+}
+parse_cycle <- function(x){
+  if (is.null(x) || is.na(x)) return(NA_integer_)
+  m <- regexec("_([0-9]+)\\.(nc|NC)$", x); hit <- regmatches(x, m)
+  if (length(hit) && length(hit[[1]]) >= 2) as.integer(hit[[1]][2]) else NA_integer_
+}
+
+## Index: download & filter ----------------------------------------------------
+message("Loading synthetic index...")
+idx_all <- getIndex("synthetic", destdir = destdir)
+
+idx_region <- subset(idx_all, rectangle = list(longitude = lonlim, latitude = latlim))
+idx_region_m <- subset_by_months(idx_region, months_keep)
+
+if (is.numeric(days_back) && days_back > 0) {
+  t_to   <- as.POSIXct(Sys.time(), tz = "UTC")
+  t_from <- t_to - lubridate::days(days_back)
+  idx_region_filt <- subset(idx_region_m, time = list(from = t_from, to = t_to))
+} else {
+  idx_region_filt <- idx_region_m
+}
+
+idx_watch_region <- subset(idx_region_filt, ID = watch_ids_num)
+
+# latest per watch-list float
+ids_present <- sort(unique(idx_watch_region[["ID"]]))
+idx_latest_each <- NULL
+for (id in ids_present) {
+  sub_id <- subset(idx_watch_region, ID = id)
+  if (length(sub_id[["time"]]) == 0) next
+  cy <- sub_id[["cycle"]]; if (length(cy) == 0) next
+  cy_max <- max(cy, na.rm = TRUE)
+  latest_one <- subset(sub_id, cycle = cy_max)
+  idx_latest_each <- if (is.null(idx_latest_each)) latest_one else merge(idx_latest_each, latest_one)
+}
+
+cat("\n--- SUMMARY -----------------------------------------------------\n")
+cat("Region lon/lat: [", paste(lonlim, collapse=","), "] / [", paste(latlim, collapse=","), "]\n", sep="")
+if (!is.null(months_keep)) cat("Months kept     : ", paste(months_keep, collapse=", "), "\n", sep="")
+if (is.numeric(days_back) && days_back > 0) cat("Recent window   : last ", days_back, " days\n", sep="")
+cat("Total in region                 : ", length(idx_region[["time"]]), "\n", sep="")
+cat("After months + recent filters   : ", length(idx_region_filt[["time"]]), "\n", sep="")
+cat("Watch-list in filtered region   : ", length(idx_watch_region[["time"]]), "\n", sep="")
+cat("Latest per watch-list (count)   : ", if (is.null(idx_latest_each)) 0 else length(idx_latest_each[["time"]]), "\n", sep="")
+
+## Choose profiles to read -----------------------------------------------------
+idx_for_profiles <- switch(
+  which_set,
+  latest     = idx_latest_each,
+  watch_all  = subset(idx_region_filt, ID = watch_ids_num),
+  region_all = idx_region_filt,
+  idx_latest_each
+)
+if (is.null(idx_for_profiles) || length(idx_for_profiles[["time"]]) == 0) {
+  stop("No profiles in `idx_for_profiles` (adjust filters or which_set).")
+}
+
+mask_bad <- TRUE  # set FALSE for raw quicklooks
+
+profs     <- getProfiles(idx_for_profiles, destdir = destdir)
+argo_raw  <- readProfiles(profs, destdir = destdir)
+argo_qc   <- if (mask_bad) applyQC(argo_raw) else argo_raw
+
+## Build idx_lookup (BEFORE tidy join) ----------------------------------------
+idx_lookup <- data.frame(
+  ID    = as.character(idx_for_profiles[["ID"]]),
+  cycle = as.integer(idx_for_profiles[["cycle"]]),
+  dt_i  = idx_for_profiles[["time"]],
+  lon_i = idx_for_profiles[["longitude"]],
+  lat_i = idx_for_profiles[["latitude"]],
+  stringsAsFactors = FALSE
+)
+
+## Tidy builder (handles camelCase & ALL-CAPS; QC->raw fallback) --------------
+argo_qc_list  <- argo_qc[["argos"]]
+argo_raw_list <- argo_raw[["argos"]]
+
+tidy_list <- lapply(seq_along(argo_qc_list), function(i){
+  pr   <- argo_qc_list[[i]]
+  prR  <- argo_raw_list[[i]]
+
+  d  <- pr@data;   m  <- pr@metadata;   nms  <- names(d)
+  dR <- prR@data;  mR <- prR@metadata;  nmsR <- names(dR)
+
+  # pick names (prefer Adjusted; supports camelCase and ALL-CAPS)
+  p_nm  <- pick_name(nms,  c("pressureAdjusted","pressure","presAdjusted","pres","PRES_ADJUSTED","PRES"))
+  t_nm  <- pick_name(nms,  c("temperatureAdjusted","temperature","tempAdjusted","temp","TEMP_ADJUSTED","TEMP"))
+  s_nm  <- pick_name(nms,  c("salinityAdjusted","salinity","psalAdjusted","psal","PSAL_ADJUSTED","PSAL"))
+
+  p_nmR <- pick_name(nmsR, c("pressure","pres","PRES","pressureAdjusted","PRES_ADJUSTED"))
+  t_nmR <- pick_name(nmsR, c("temperature","temp","TEMP","temperatureAdjusted","TEMP_ADJUSTED"))
+  s_nmR <- pick_name(nmsR, c("salinity","psal","PSAL","salinityAdjusted","PSAL_ADJUSTED"))
+
+  chl_nm <- pick_name(nms,  c("chlorophyllAAdjusted","chlorophyllA",
+                               "chlorophyllA_FLUORESCENCEAdjusted","chlorophyllA_FLUORESCENCE",
+                               "CHLA_ADJUSTED","CHLA"))
+  par_nm <- pick_name(nms,  c("downwellingPARAdjusted","downwellingPAR",
+                               "PAR_ADJUSTED","PAR"))
+  o2_nm  <- pick_name(nms,  c("oxygenAdjusted","oxygen","DOXY_ADJUSTED","DOXY"))
+  no3_nm <- pick_name(nms,  c("nitrateAdjusted","nitrate","NITRATE_ADJUSTED","NITRATE"))
+  ph_nm  <- pick_name(nms,  c("pHAdjusted","pH","PH_IN_SITU_TOTAL_ADJUSTED","PH_IN_SITU_TOTAL"))
+  bbp_nm <- pick_bbp_any(nms)
+
+  # vectors (elementwise coalesce QC -> RAW for core)
+  P <- ecoalesce(getv(d, p_nm), getv(dR, p_nmR))
+  T <- ecoalesce(getv(d, t_nm), getv(dR, t_nmR))
+  S <- ecoalesce(getv(d, s_nm), getv(dR, s_nmR))
+
+  # last-chance: any pressure-like in QC then RAW
+  if (sum(is.finite(P)) == 0) {
+    cand  <- nms [grepl("^pressure", nms,  perl = TRUE)]
+    if (length(cand)) P <- getv(d, cand[1])
+  }
+  if (sum(is.finite(P)) == 0) {
+    candR <- nmsR[grepl("^pressure", nmsR, perl = TRUE)]
+    if (length(candR)) P <- getv(dR, candR[1])
+  }
+
+  Ch <- getv(d, chl_nm)
+  PR <- getv(d, par_nm)
+  O2 <- getv(d, o2_nm)
+  N3 <- getv(d, no3_nm)
+  pH <- getv(d, ph_nm)
+  B  <- getv(d, bbp_nm)
+
+  len <- max(c(length(P), length(T), length(S),
+               length(Ch), length(PR), length(O2), length(N3), length(pH), length(B)), na.rm = TRUE)
+  if (!is.finite(len) || len == 0) return(NULL)
+
+  P  <- pad(P,  len); T <- pad(T, len); S <- pad(S, len)
+  Ch <- pad(Ch, len); PR <- pad(PR, len); O2 <- pad(O2, len)
+  N3 <- pad(N3, len); pH <- pad(pH, len); B  <- pad(B,  len)
+
+  # robust ID/coords
+  file_base <- if (!is.null(m$filename) && length(m$filename)) basename(m$filename) else NA_character_
+  id_val <- as.character((m$ID %||% m$id %||% "Unknown"))[1]
+
+  rho <- try(oce::swRho(S, T, P), silent=TRUE);  if (inherits(rho,"try-error")) rho <- rep(NA_real_, len)
+  sig <- try(oce::swSigmaTheta(S, T, P), silent=TRUE); if (inherits(sig,"try-error")) sig <- rep(NA_real_, len)
+
+  data.frame(
+    ID = rep(id_val, len),
+    cycle = rep(if (length(m$cycle)) as.integer(m$cycle) else NA_integer_, len),
+    dt    = rep(if (length(m$time))  m$time else as.POSIXct(NA, tz="UTC"), len),
+    lon   = rep(if (length(m$longitude)) as.numeric(m$longitude) else NA_real_, len),
+    lat   = rep(if (length(m$latitude))  as.numeric(m$latitude)  else NA_real_, len),
+    file  = rep(file_base, len),
+    pressure=P, temperature=T, salinity=S, density=rho, sigmaTheta=sig,
+    PAR=PR, chlorophyll=Ch, bbp=B, nitrate=N3, oxygen=O2, pH=pH,
+    stringsAsFactors = FALSE
+  )
+})
+
+tidy <- dplyr::bind_rows(Filter(Negate(is.null), tidy_list))
+
+## Join lon/lat/dt from index by (ID + cycle) ---------------------------------
+tidy$cycle_parsed <- ifelse(is.na(tidy$cycle), vapply(tidy$file, parse_cycle, integer(1)), tidy$cycle)
+tidy <- tidy %>%
+  mutate(ID = as.character(ID)) %>%
+  left_join(idx_lookup %>% mutate(ID = as.character(ID)), by = c("ID"="ID","cycle_parsed"="cycle")) %>%
+  mutate(lon = dplyr::coalesce(lon, lon_i),
+         lat = dplyr::coalesce(lat, lat_i),
+         dt  = dplyr::coalesce(dt,  dt_i)) %>%
+  select(-lon_i, -lat_i, -dt_i)
+
+## Depth in meters; clean oxygen negatives ------------------------------------
+tidy <- tidy %>%
+  mutate(
+    depth_m_calc = tryCatch(oce::swDepth(pressure, lat), error = function(e) rep(NA_real_, length(pressure))),
+    depth_m = ifelse(is.finite(depth_m_calc), depth_m_calc,
+                     ifelse(is.finite(pressure), pressure, NA_real_))
+  ) %>%
+  select(-depth_m_calc) %>%
+  mutate(oxygen = ifelse(oxygen < 0, NA_real_, oxygen))
+
+## Quick data-availability check (0–500 m) ------------------------------------
+check <- tidy |>
+  dplyr::filter(depth_m <= 500) |>
+  dplyr::group_by(ID) |>
+  dplyr::summarise(
+    nP  = sum(is.finite(pressure)),
+    nT  = sum(is.finite(temperature)),
+    nS  = sum(is.finite(salinity)),
+    n_rho= sum(is.finite(density)),
+    n_sig= sum(is.finite(sigmaTheta)),
+    n_CHL= sum(is.finite(chlorophyll)),
+    n_PAR= sum(is.finite(PAR)),
+    n_bbp= sum(is.finite(bbp)),
+    n_NO3= sum(is.finite(nitrate)),
+    n_O2 = sum(is.finite(oxygen)),
+    n_pH = sum(is.finite(pH)),
+    .groups = "drop"
+  )
+print(check)
+
+## Map (ggplot borders) -------------------------------------------------------
+make_float_map <- function(fid) {
+  tr <- data.frame(
+    ID   = idx_region_filt[["ID"]],
+    time = idx_region_filt[["time"]],
+    lon  = idx_region_filt[["longitude"]],
+    lat  = idx_region_filt[["latitude"]]
+  )
+  tr <- tr[tr$ID == as.numeric(fid), , drop = FALSE]
+  tr <- tr[order(tr$time), ]
+
+  gg <- ggplot() +
+    borders("world", colour = "grey40", fill = "grey85") +
+    coord_quickmap(xlim = range(lonlim), ylim = range(latlim), expand = FALSE) +
+    theme_minimal(base_size = 11) +
+    labs(title = paste("Float", fid, "track"), x = NULL, y = NULL)
+
+  if (!nrow(tr)) return(gg + ggtitle(paste(fid, "(no track in window)")))
+
+  gg +
+    geom_path(data = tr, aes(x = lon, y = lat, group = 1), linewidth = 1.1, color = "steelblue") +
+    geom_point(data = tr[nrow(tr), , drop = FALSE], aes(x = lon, y = lat),
+               pch = 21, fill = "orange", color = "black", size = 2.8, stroke = 0.3) +
+    geom_text(data = tr[nrow(tr), , drop = FALSE], aes(x = lon, y = lat, label = fid),
+              nudge_y = 0.3, size = 3)
+}
+
+## Labels ----------------------------------------------------------------------
+var_labels <- c(
+  temperature = "Temperature (°C)",
+  salinity    = "Salinity (PSU)",
+  density     = expression(Density~"(kg m"^{-3}*")"),
+  PAR         = expression(PAR~"(" * mu * "E m"^{-2}*" s"^{-1}*")"),
+  chlorophyll = expression(Chl~"(mg m"^{-3}*")"),
+  bbp         = expression(b[bp]~"(m"^{-1}*")"),
+  nitrate     = expression(Nitrate~"(" * mu * "mol L"^{-1}*")"),
+  oxygen      = expression(Oxygen~"(" * mu * "mol kg"^{-1}*")"),
+  pH          = expression(pH[total])
+)
+vars_order <- c("temperature","salinity","density","PAR","chlorophyll","bbp","nitrate","oxygen","pH")
+
+## Profiles (0–500 m): gray history + colored latest; depth on y --------------
+make_profile_panel <- function(df_float, var){
+  if (!(var %in% names(df_float))) return(NULL)
+  if (all(is.na(df_float[[var]]))) return(NULL)
+
+  df500 <- df_float %>%
+    filter(is.finite(depth_m), depth_m <= 500, is.finite(.data[[var]]))
+  if (!nrow(df500)) return(NULL)
+
+  latest_dt <- max(df500$dt, na.rm = TRUE)
+  is_latest <- df500$dt == latest_dt
+
+  ggplot() +
+    geom_path(data = df500,
+              aes(x = .data[[var]], y = depth_m, group = file),
+              color = "grey75", linewidth = 0.5, alpha = 0.7) +
+    geom_path(data = df500[is_latest, ],
+              aes(x = .data[[var]], y = depth_m, group = file),
+              linewidth = 1.1, color = "#0072B2") +
+    scale_y_reverse(limits = c(500, 0), expand = c(0,0)) +
+    labs(title = paste0(unique(df500$ID), " — ", names(var_labels[var])),
+         x = var_labels[[var]], y = "Depth (m)") +
+    theme_classic(base_size = 12)
+}
+
+## Hovmöller (0–500 m): Turbo colormap ---------------------------------------
+dgrid <- seq(0, 500, by = 5)
+interp_profile <- function(df_one_profile, var){
+  x <- df_one_profile$depth_m; y <- df_one_profile[[var]]
+  ok <- is.finite(x) & is.finite(y)
+  if (sum(ok) < 2) return(NULL)
+  yint <- approx(x[ok], y[ok], xout = dgrid, rule = 2)$y
+  data.frame(depth_m = dgrid, value = yint)
+}
+make_hovmoller <- function(df_float, var){
+  if (!(var %in% names(df_float))) return(NULL)
+  if (all(is.na(df_float[[var]]))) return(NULL)
+
+  df <- df_float %>%
+    filter(is.finite(depth_m), depth_m <= 500,
+           is.finite(.data[[var]]), is.finite(dt))
+  if (!nrow(df)) return(NULL)
+
+  prof_keys <- df %>%
+    group_by(file) %>%
+    summarise(dt = max(dt, na.rm = TRUE), .groups = "drop") %>%
+    arrange(dt)
+
+  blocks <- lapply(seq_len(nrow(prof_keys)), function(i){
+    fk <- prof_keys$file[i]
+    dcy <- df[df$file == fk, ]
+    ii  <- interp_profile(dcy, var)
+    if (is.null(ii)) return(NULL)
+    data.frame(ID = unique(dcy$ID), dt = prof_keys$dt[i], ii)
+  })
+  blocks <- Filter(Negate(is.null), blocks)
+  if (!length(blocks)) return(NULL)
+  Z <- dplyr::bind_rows(blocks)
+
+  ggplot(Z, aes(x = dt, y = depth_m, fill = value)) +
+    geom_tile() +
+    scale_y_reverse(limits = c(500, 0), expand = c(0,0)) +
+    scale_fill_gradientn(colors = viridisLite::turbo(256), na.value = "grey70") +
+    labs(title = paste0(unique(Z$ID), " — ", names(var_labels[var])),
+         x = "Time", y = "Depth (m)", fill = var_labels[[var]]) +
+    theme_classic(base_size = 12)
+}
+
+## Assemble one composite per float -------------------------------------------
+build_float_figure <- function(fid, tidy_df){
+  df_f <- tidy_df %>% dplyr::filter(ID == fid)
+
+  map_plot <- make_float_map(fid)
+
+  prof_plots <- lapply(vars_order, function(v) make_profile_panel(df_f, v))
+  prof_plots <- Filter(Negate(is.null), prof_plots)
+  prof_grid  <- if (length(prof_plots)) wrap_plots(prof_plots, ncol = 2) else
+    ggplot() + theme_void() + ggtitle("No profiles in 0–500 m")
+
+  hov_plots <- lapply(vars_order, function(v) make_hovmoller(df_f, v))
+  hov_plots <- Filter(Negate(is.null), hov_plots)
+  hov_grid  <- if (length(hov_plots)) wrap_plots(hov_plots, ncol = 2) else
+    ggplot() + theme_void() + ggtitle("No time–depth fields in 0–500 m")
+
+  layout <- c(area(t = 1, l = 1,  b = 10, r = 6),
+              area(t = 1, l = 7,  b = 10, r = 16),
+              area(t = 1, l = 17, b = 10, r = 26))
+
+  (map_plot + prof_grid + hov_grid) +
+    plot_layout(design = layout) &
+    theme(plot.title = element_text(size = 11))
+}
+
+## Build & print (and optionally save) all floats present ----------------------
+float_ids_present <- sort(unique(tidy$ID))
+if (!length(float_ids_present)) stop("No float IDs present after filtering/tidying.")
+
+for (fid in float_ids_present) {
+  p <- build_float_figure(fid, tidy)
+  print(p)
+  if (save_png) {
+    outfile <- file.path(png_dir, paste0("Float_", fid, "_", today_str, ".png"))
+    ggsave(outfile, p, width=16, height=8.5, dpi=200)
+  }
+}
+
+# ---- Update archive index and 'latest' folders ------------------------------
+source(file.path(repo_root, "scripts", "update_fig_index.R"))
+
+update_fig_index(
+  repo_root = repo_root,      # use explicit path
+  add_thumbnails = TRUE,
+  do_git = FALSE              # flip to TRUE for auto-commit/push
+)
+
+
+```
+
+
