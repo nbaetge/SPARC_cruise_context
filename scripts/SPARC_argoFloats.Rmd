@@ -6,12 +6,31 @@ output: html_document
 ---
 
 ```{r}
-#### Argo tracker + GUI-style composites (Map | Profiles | Hovmöller) #########
-## Safe figure options (prevents .Rproj.user snapshot errors in RStudio) ------
+
+# ---- Resolve repo root (absolute, portable) ---------------------------------
+repo_root <- Sys.getenv(
+  "SPARC_CONTEXT_PATH",
+  "/Users/nicholasbaetge/github/cruise_context/SPARC_2025/SPARC_cruise_context_git"
+)
+
+# Make sure the directory exists
+stopifnot(dir.exists(repo_root))
+
+# Tell knitr where "project root" is and where to put chunk images
 if (requireNamespace("knitr", quietly = TRUE)) {
-  knitr::opts_chunk$set(fig.path = "figs/", dev = "png", dpi = 150, cache = FALSE)
+  # send all *chunk-rendered* images to a subfolder under the REAL figs/
+  knitr_img_dir <- file.path(repo_root, "figs", "knitr_")
+  dir.create(knitr_img_dir, recursive = TRUE, showWarnings = FALSE)
+  # knitr needs a trailing slash; paste0 is an easy way to enforce it
+  knitr::opts_chunk$set(
+    fig.path = paste0(knitr_img_dir, "/"),
+    dev = "png",
+    dpi = 150,
+    cache = FALSE
+  )
+  # Also set the knit root so relative reads/writes behave from repo_root
+  knitr::opts_knit$set(root.dir = repo_root)
 }
-dir.create("figs", showWarnings = FALSE)
 
 ## Packages --------------------------------------------------------------------
 library(argoFloats)
@@ -28,7 +47,7 @@ library(viridisLite)
 `%||%` <- function(a, b) if (!is.null(a) && length(a)) a else b
 
 ## User settings ---------------------------------------------------------------
-destdir <- "~/github/cruise_context/SPARC_2025/SPARC_cruise_context_git/data"
+destdir <- file.path(repo_root, "data", "argo_data")
 dir.create(destdir, recursive = TRUE, showWarnings = FALSE)
 
 # Region of interest
@@ -49,22 +68,12 @@ months_keep <- NULL
 which_set <- "watch_all"
 
 # Save each composite to PNG?
-save_png <- TRUE
-
-# ---- NEW: date-stamped folder + filename suffix -----------------------------
-today_str <- format(Sys.Date(), "%Y%m%d")  # e.g., "20251105"
-
-# Full, explicit path to your GitHub repository root
-repo_root <- "/Users/nicholasbaetge/github/cruise_context/SPARC_2025/SPARC_cruise_context_git"
-
-# Parent folder for all figure outputs
+save_png  <- TRUE
+today_str <- format(Sys.Date(), "%Y%m%d")
 png_parent <- file.path(repo_root, "figs")
-
-# Date-stamped subfolder (e.g., figs/float_composites_20251105)
-png_dir <- file.path(png_parent, paste0("float_composites_", today_str))
-
-# Create folder if saving PNGs
+png_dir    <- file.path(png_parent, paste0("float_composites_", today_str))
 if (save_png) dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
+
 
 
 ## Helpers ---------------------------------------------------------------------
@@ -456,7 +465,7 @@ update_fig_index(
   repo_root = repo_root,
   add_thumbnails = TRUE,
   thumbs_per_cat = 8,
-  do_git = FALSE,                # flip to TRUE once happy
+  do_git = FALSE,
   update_root_readme = TRUE
 )
 

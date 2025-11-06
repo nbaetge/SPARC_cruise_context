@@ -16,10 +16,10 @@ The figures provide environmental context for the SPARC research cruise, combini
 ### Latest Previews
 
 **Floats**
-_No float images yet._
+![](figs/latest/float/Float_2902834_20251105.png) ![](figs/latest/float/Float_4903868_20251105.png) ![](figs/latest/float/Float_5906487_20251105.png) ![](figs/latest/float/Float_6903767_20251105.png)
 
 **Satellite**
-_No satellite images yet._
+![](figs/latest/satellite/PACE_CHL_change_last8d_vs_prev_20251104.png) ![](figs/latest/satellite/PACE_CHL_last8d_median_20251104.png) ![](figs/latest/satellite/PACE_CHL_pct_change_last8d_vs_prev_20251104.png) ![](figs/latest/satellite/PACE_CHL_prev8d_median_20251104.png)
 
 <!-- SPARC_CONTEXT_PREVIEWS -->
 NA
