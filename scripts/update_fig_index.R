@@ -39,8 +39,22 @@ update_fig_index <- function(
   list_pngs <- function(dir_path, max_n = Inf) {
     if (!dir.exists(dir_path)) return(character(0))
     f <- list.files(dir_path, pattern = "\\.png$", full.names = FALSE, recursive = TRUE)
+    if (!length(f)) return(character(0))
+    
+    # Custom sorting: median plots first, then change plots
+    order_vec <- order(
+      grepl("prev8d_median", f, ignore.case = TRUE),
+      grepl("last8d_median", f, ignore.case = TRUE),
+      grepl("change_last8d_vs_prev", f, ignore.case = TRUE),
+      grepl("pct_change_last8d_vs_prev", f, ignore.case = TRUE),
+      f,
+      decreasing = FALSE
+    )
+    
+    f <- f[order_vec]
     head(f, max_n)
   }
+  
   
   # 1) Determine newest float/satellite dated folders --------------------------
   newest_float <- newest_dir(figs_dir, "^float_composites_\\d{8}$")
