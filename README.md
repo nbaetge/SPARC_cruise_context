@@ -9,3 +9,18 @@ The figures provide environmental context for the SPARC research cruise, combini
 - 🔹 [Latest floats only](figs/latest_float/)
 - 🔹 [Latest satellite only](figs/latest_sat/)
 - 📚 [Archives index](figs/README.md)
+
+
+<!-- SPARC_CONTEXT_PREVIEWS -->
+
+### Latest Previews
+
+**Floats**
+_No float images yet._
+
+**Satellite**
+_No satellite images yet._
+
+<!-- SPARC_CONTEXT_PREVIEWS -->
+NA
+<!-- SPARC_CONTEXT_PREVIEWS -->

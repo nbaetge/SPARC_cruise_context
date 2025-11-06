@@ -452,13 +452,13 @@ for (fid in float_ids_present) {
 
 # ---- Update archive index and 'latest' folders ------------------------------
 source(file.path(repo_root, "scripts", "update_fig_index.R"))
-
 update_fig_index(
-  repo_root = repo_root,      # use explicit path
+  repo_root = repo_root,
   add_thumbnails = TRUE,
-  do_git = FALSE              # flip to TRUE for auto-commit/push
+  thumbs_per_cat = 8,
+  do_git = FALSE,                # flip to TRUE once happy
+  update_root_readme = TRUE
 )
-
 
 ```
 
