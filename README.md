@@ -16,10 +16,10 @@ The figures provide environmental context for the SPARC research cruise, combini
 ### Latest Previews
 
 **Floats**
-![](figs/latest/float/Float_2902834_20251114.png) ![](figs/latest/float/Float_4903868_20251114.png) ![](figs/latest/float/Float_5906487_20251114.png) ![](figs/latest/float/Float_6903767_20251114.png)
+![](figs/latest/float/Float_2902834_20251117.png) ![](figs/latest/float/Float_4903868_20251117.png) ![](figs/latest/float/Float_5906487_20251117.png) ![](figs/latest/float/Float_6903767_20251117.png)
 
 **Satellite**
-![](figs/latest/satellite/PACE_CHL_change_last8d_vs_prev_20251113.png) ![](figs/latest/satellite/PACE_CHL_pct_change_last8d_vs_prev_20251113.png) ![](figs/latest/satellite/PACE_CHL_last8d_median_20251113.png) ![](figs/latest/satellite/PACE_CHL_prev8d_median_20251113.png)
+![](figs/latest/satellite/PACE_CHL_change_last8d_vs_prev_20251115.png) ![](figs/latest/satellite/PACE_CHL_pct_change_last8d_vs_prev_20251115.png) ![](figs/latest/satellite/PACE_CHL_last8d_median_20251115.png) ![](figs/latest/satellite/PACE_CHL_prev8d_median_20251115.png)
 
 <!-- SPARC_CONTEXT_PREVIEWS -->
 NA
