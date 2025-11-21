@@ -7,6 +7,10 @@ Quick links:
 
 ## Float Composite Archives
 
+- [float_composites_20251121](./float_composites_20251121/)
+
+  ![](./float_composites_20251121/Float_2902834_20251121.png) ![](./float_composites_20251121/Float_4903868_20251121.png) ![](./float_composites_20251121/Float_5906487_20251121.png) ![](./float_composites_20251121/Float_6903767_20251121.png) ![](./float_composites_20251121/Float_6904186_20251121.png)
+
 - [float_composites_20251117](./float_composites_20251117/)
 
   ![](./float_composites_20251117/Float_2902834_20251117.png) ![](./float_composites_20251117/Float_4903868_20251117.png) ![](./float_composites_20251117/Float_5906487_20251117.png) ![](./float_composites_20251117/Float_6903767_20251117.png) ![](./float_composites_20251117/Float_6904186_20251117.png)
@@ -25,6 +29,18 @@ Quick links:
 
 
 ## Satellite Composite Archives
+
+- [satellite_composites_20251120](./satellite_composites_20251120/)
+
+  ![](./satellite_composites_20251120/PACE_CHL_change_last8d_vs_prev_20251120.png) ![](./satellite_composites_20251120/PACE_CHL_pct_change_last8d_vs_prev_20251120.png) ![](./satellite_composites_20251120/PACE_CHL_last8d_median_20251120.png) ![](./satellite_composites_20251120/PACE_CHL_prev8d_median_20251120.png)
+
+- [satellite_composites_20251118](./satellite_composites_20251118/)
+
+  ![](./satellite_composites_20251118/PACE_CHL_change_last8d_vs_prev_20251118.png) ![](./satellite_composites_20251118/PACE_CHL_pct_change_last8d_vs_prev_20251118.png) ![](./satellite_composites_20251118/PACE_CHL_last8d_median_20251118.png) ![](./satellite_composites_20251118/PACE_CHL_prev8d_median_20251118.png)
+
+- [satellite_composites_20251117](./satellite_composites_20251117/)
+
+  ![](./satellite_composites_20251117/PACE_CHL_change_last8d_vs_prev_20251117.png) ![](./satellite_composites_20251117/PACE_CHL_pct_change_last8d_vs_prev_20251117.png) ![](./satellite_composites_20251117/PACE_CHL_last8d_median_20251117.png) ![](./satellite_composites_20251117/PACE_CHL_prev8d_median_20251117.png)
 
 - [satellite_composites_20251115](./satellite_composites_20251115/)
 
