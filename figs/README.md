@@ -30,6 +30,10 @@ Quick links:
 
 ## Satellite Composite Archives
 
+- [satellite_composites_20251124](./satellite_composites_20251124/)
+
+  ![](./satellite_composites_20251124/PACE_CHL_change_last8d_vs_prev_20251123.png) ![](./satellite_composites_20251124/PACE_CHL_pct_change_last8d_vs_prev_20251123.png) ![](./satellite_composites_20251124/PACE_CHL_last8d_median_20251123.png) ![](./satellite_composites_20251124/PACE_CHL_prev8d_median_20251123.png)
+
 - [satellite_composites_20251120](./satellite_composites_20251120/)
 
   ![](./satellite_composites_20251120/PACE_CHL_change_last8d_vs_prev_20251120.png) ![](./satellite_composites_20251120/PACE_CHL_pct_change_last8d_vs_prev_20251120.png) ![](./satellite_composites_20251120/PACE_CHL_last8d_median_20251120.png) ![](./satellite_composites_20251120/PACE_CHL_prev8d_median_20251120.png)
