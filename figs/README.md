@@ -7,6 +7,10 @@ Quick links:
 
 ## Float Composite Archives
 
+- [float_composites_20251201](./float_composites_20251201/)
+
+  ![](./float_composites_20251201/Float_2902834_20251201.png) ![](./float_composites_20251201/Float_4903868_20251201.png) ![](./float_composites_20251201/Float_5906487_20251201.png) ![](./float_composites_20251201/Float_6903767_20251201.png) ![](./float_composites_20251201/Float_6904186_20251201.png)
+
 - [float_composites_20251121](./float_composites_20251121/)
 
   ![](./float_composites_20251121/Float_2902834_20251121.png) ![](./float_composites_20251121/Float_4903868_20251121.png) ![](./float_composites_20251121/Float_5906487_20251121.png) ![](./float_composites_20251121/Float_6903767_20251121.png) ![](./float_composites_20251121/Float_6904186_20251121.png)
@@ -29,6 +33,14 @@ Quick links:
 
 
 ## Satellite Composite Archives
+
+- [satellite_composites_20251201](./satellite_composites_20251201/)
+
+  ![](./satellite_composites_20251201/PACE_CHL_cruise_median_20251114_20251201.png) ![](./satellite_composites_20251201/PACE_CHL_change_last8d_vs_prev_20251130.png) ![](./satellite_composites_20251201/PACE_CHL_pct_change_last8d_vs_prev_20251130.png) ![](./satellite_composites_20251201/PACE_CHL_last8d_median_20251130.png) ![](./satellite_composites_20251201/PACE_CHL_prev8d_median_20251130.png)
+
+- [satellite_composites_20251126](./satellite_composites_20251126/)
+
+  ![](./satellite_composites_20251126/PACE_CHL_change_last8d_vs_prev_20251126.png) ![](./satellite_composites_20251126/PACE_CHL_pct_change_last8d_vs_prev_20251126.png) ![](./satellite_composites_20251126/PACE_CHL_last8d_median_20251126.png) ![](./satellite_composites_20251126/PACE_CHL_prev8d_median_20251126.png)
 
 - [satellite_composites_20251124](./satellite_composites_20251124/)
 
